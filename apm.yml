@@ -1,0 +1,12 @@
+name: winforms-ui-builder
+version: 1.0.0
+description: Generates production-ready Windows Forms desktop applications powered by Syncfusion WinForms Controls. Orchestrates a structured
+  workflow that handles design thinking, control picking, code generation, and validation
+  with built-in WCAG 2.1 AA accessibility and responsive WinForms design. Use when building WinForms applications,
+  creating desktop controls, designing Windows interfaces, or generating C# WinForms code.
+author: Syncfusion Inc
+dependencies:
+  apm:
+    - syncfusion/winform-ui-components-skills
+    - syncfusion/pdf-viewer-sdk-skills/skills/syncfusion-winforms-pdf-viewer
+    - syncfusion/spreadsheet-editor-sdk-skills/skills/syncfusion-winforms-spreadsheet-editor
