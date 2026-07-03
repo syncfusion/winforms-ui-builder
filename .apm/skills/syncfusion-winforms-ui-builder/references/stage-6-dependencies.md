@@ -1,140 +1,275 @@
 # Stage 6: Dependencies
 
-**Purpose:** Detect required NuGet packages, resolve version conflicts, prepare dotnet add package command.
+**Purpose:** Detect required NuGet packages from skill files, resolve versions, deduplicate, and prepare installation commands.
 
 ---
 
-## ⚠️ CRITICAL: Convert Skill Names to Officially Documented Syncfusion NuGet Packages
+## ⛔ MANDATORY RULE: No Assumptions — Skill Files ONLY
 
-**Stage 3 generates control mappings using REFERENCE LABELS** (e.g., `syncfusion-winforms-datagrid` from `skill_hint` field).
-**Stage 6 MUST map these reference labels to OFFICIAL Syncfusion NuGet package names explicitly documented in control skill files or controls.csv.**
+**Before adding ANY NuGet package:**
+1. ✅ Read `skill-extraction.json` (produced by Stage — Control Skill Extraction) to access pre-extracted package data
+2. ✅ Verify all controls in `skill-extraction.json` have `validation_status: "PASS"`
+3. ✅ Extract **exact** package name from `nuget_package` field (already verified in Stage — Control Skill Extraction)
+4. ✅ Use **version from Stage 2 detection** (matching Syncfusion version in project)
+5. ✅ Never assume, infer, or guess package names or versions
 
-**DO NOT assume package names follow patterns** (e.g., ❌ appending `.WinForms` to control names).
+**Why this matters:**
+- ❌ `syncfusion-winforms-datagrid` ≠ `Syncfusion.DataGrid.WinForms` (actual: `Syncfusion.SfDataGrid.WinForms`)
+- ❌ Guessing versions causes assembly mismatches and runtime failures
+- ✅ Only `skill-extraction.json` (pre-validated) is authoritative for package resolution
 
-**Verification Process (REQUIRED):**
-1. **Extract all Syncfusion skill names from Stage 3 output:**
-   - Get `skill_hint` values from Stage 3 control mapping results
-   - Example: `syncfusion-winforms-button`, `syncfusion-winforms-datagrid`, `syncfusion-winforms-chart`
-   - Source: From controls_search.cjs output (kept in chat from Stage 3)
+**Rejection criteria:**
+- ❌ Any control missing from `skill-extraction.json`
+- ❌ Any entry with `validation_status != "PASS"`
+- ❌ Any package NOT explicitly in `nuget_package` field
+- ❌ Any version mismatch from Stage 2 detection
 
-2. **For EACH skill name, locate the mapping source:**
-   - **FIRST**: Check `controls.csv` in `/scripts/` directory:
-     - Skill Name (column) → NuGet Package column mapping
-     - Example: `syncfusion-winforms-datagrid` → `Syncfusion.SfDataGrid.WinForms`
-   - **SECOND**: Look for corresponding control skill file:
-     - `.codestudio/skills/syncfusion-winforms-<controlname>/SKILL.md`
-     - `.agent/skills/syncfusion-winforms-<controlname>/SKILL.md`
-     - `.agents/skills/syncfusion-winforms-<controlname>/SKILL.md`
-     - `.github/skills/syncfusion-winforms-<controlname>/SKILL.md`
-     - `skills/syncfusion-winforms-<controlname>/SKILL.md`
-   - **THIRD**: Consult official Syncfusion documentation if neither above exists:
-     - [Syncfusion WinForms Controls](https://help.syncfusion.com/windowsforms/introduction/overview)
+**Consequence:** Do not proceed with installation if package source cannot be verified in `skill-extraction.json`.
 
-3. **Verify the NuGet package name is EXPLICITLY documented in at least one source:**
-   - The control's SKILL.md file under `NuGet Package` or getting-started section, OR
-   - `controls.csv` skill-to-package mapping, OR
-   - Official Syncfusion WinForms documentation
+---
 
-4. **Verify the package version is compatible with the project's target framework** (from Stage 2)
+## ⛔ ERROR HANDLING: Missing Syncfusion Control ('does not exist in namespace...')
 
-5. **REJECT any package name that is not explicitly documented** - do not infer or assume
+**Common error in Stage 5-6:**
+- ❌ `'SfDataGrid' does not exist in namespace 'Syncfusion.WinForms.DataGrid'`
+- ❌ `Build Error: The type or namespace name 'X' could not be found`
 
-**Mapping Examples (Verified Against controls.csv and Official Syncfusion Documentation):**
+**Root cause:** NuGet package not installed OR package name guessed/assumed
 
-| Skill Reference (skill_hint from Stage 3) | Source | Correct Official NuGet Package | Notes | DO NOT USE |
-|---|---|---|---|---|
-| `syncfusion-winforms-datagrid` | controls.csv | `Syncfusion.SfDataGrid.WinForms` | For advanced data grid functionality | ❌ `DataGrid.WinForms` ❌ `Syncfusion.DataGrid.WinForms` |
-| `syncfusion-winforms-chart` | controls.csv | `Syncfusion.Chart.Windows` | For chart visualization | ❌ `Chart.WinForms` |
-| `syncfusion-winforms-button` | controls.csv | `Syncfusion.Core.WinForms` | Core Syncfusion assemblies | ❌ `Button.WinForms` |
-| `syncfusion-winforms-textbox` | controls.csv | `Syncfusion.Core.WinForms` or `Syncfusion.Shared.Base` | Text input controls | ❌ `TextBox.WinForms` |
-| `syncfusion-winforms-ribbon` | controls.csv | `Syncfusion.Tools.Windows` | For ribbon bar UI | ❌ `Ribbon.WinForms` |
+**Mandatory fix:**
+1. ✅ Read `control-mapping.json` to identify which controls are mapped
+2. ✅ For each control, read the corresponding skill file (`getting-started.md`)
+3. ✅ Extract EXACT NuGet package name (e.g., `Syncfusion.SfDataGrid.WinForms` for `SfDataGrid`)
+4. ✅ Install package using latest stable version from NuGet registry
+5. ⛔ If package name is unclear or missing from skill file → HALT. Do NOT attempt to install guessed names
+6. ⛔ DO NOT fallback to Microsoft native controls (e.g., `DataGridView`, `ComboBox`) — Syncfusion skill file is authoritative
 
-**How to Use This Table:**
-1. Get `skill_hint` value from Stage 3 control mapping output (e.g., `syncfusion-winforms-datagrid`)
-2. Find matching row in table above
-3. Use the "Correct Official NuGet Package" name in `dotnet add package` command
-4. **NEVER use the "DO NOT USE" variations** — these are incorrect patterns
+**Verification:** After installation, run `dotnet build` to confirm namespace resolution before proceeding to Stage 7.
 
-**Example Workflow:**
+---
+
+## 🔴 Stage 6 Entry Gate: Reject Non-Verified Controls
+
+**BLOCKING check before any dependency resolution:**
+
 ```
-Stage 3 output: "skill_hint": "syncfusion-winforms-button"
-           ↓
-Table lookup: syncfusion-winforms-button → Syncfusion.Core.WinForms
-           ↓
-Stage 6 command: dotnet add package Syncfusion.Core.WinForms
+IF skill-extraction.json missing:
+  → ❌ HALT: "Stage — Control Skill Extraction not completed. Cannot identify NuGet packages."
+
+FOR EACH control in skill-extraction.json:
+  IF validation_status != "PASS":
+    → ❌ HALT: "Control validation failed. Check Stage — Control Skill Extraction output."
+
+  IF nuget_package == null OR nuget_package == "":
+    → ❌ HALT: "NuGet package undefined for control. Skill file missing?"
+
+ALL checks pass → ✅ Gate cleared. Proceed to Step 1.
+ANY check fails → ❌ HALT. Do NOT proceed to dependency installation.
 ```
 
 ---
 
-**AI Should:**
+## 6-Step Dependency Workflow
 
-1. **Map Skill Names to Officially Documented NuGet Packages:**
-   - Extract Syncfusion skill names from generated code comments or imports
-   - For EACH skill name, consult:
-     - First: The corresponding control skill file (if available at `.codestudio/skills/syncfusion-winforms-<name>/SKILL.md`)
-     - Second: Official Syncfusion WinForms documentation
-   - **ONLY use package names that are EXPLICITLY documented** in control skill files or official Syncfusion resources
-   - Verify package names are officially supported and match documented NuGet references exactly
-   - Document mapping and source (skill file or official documentation) for audit trail
-   - **REJECT** any inferred or assumed package names
+### Step 1: Read `skill-extraction.json` & Identify Packages
+- Load: `<project-root>/skill-extraction.json` (pre-validated from Stage — Control Skill Extraction)
+- For each control entry:
+  - Use `nuget_package` field directly (already extracted + verified in Stage — Control Skill Extraction)
+  - Use `nuget_version` field to match project's Syncfusion version
+- **Output:** Control → Official Package mapping (pre-verified, no re-extraction needed)
 
-2. **Check Project's .csproj File:**
-   - What NuGet packages already installed?
-   - What versions are currently in use?
-   - What is the target framework?
-   - Any version conflicts with .NET Framework or .NET Core compatibility?
+### Step 2: Scan Project .csproj
+- Check existing Syncfusion packages and versions
+- Identify framework target (net10.0-windows, net462, etc.)
+- List already-installed dependencies
+- **Output:** Current project state
 
-3. **Resolve Conflicts:**
-   - If Syncfusion package already installed:
-     - Is version compatible with target framework?
-     - Suggest upgrade if needed for .NET compatibility
-   - If framework version conflicts:
-     - Recommend target framework version (e.g., net8.0)
-     - Check compatibility with all dependencies
-   - Verify Syncfusion license registration is included
+### Step 3: Resolve Versions
 
-4. **Prepare Installation Command:**
-   - Generate dotnet add package command using VERIFIED official package names
-   - List packages to add with specific versions
-   - List packages to upgrade (if needed)
-   - Include package restoration command
+**Version detection priority (apply in order — stop at first success):**
 
-**Example Output:**
+```
+1. Read Stage 2 output → syncfusion_version field
+   IF version found AND non-empty → use it for ALL Syncfusion packages
+
+2. Scan <ProjectName>.csproj for any existing Syncfusion package version
+   IF found (e.g., <PackageReference Include="Syncfusion.Core.WinForms" Version="*" />)
+   → extract that version → apply to ALL new Syncfusion packages
+
+3. Query NuGet registry:
+   dotnet package search Syncfusion.Core.WinForms --exact
+   IF latest stable version returned → use it
+
+4. IF version CANNOT be determined by any method above:
+   ❌ Do NOT guess a version number
+   ✅ Use version="*" — this resolves to the highest available stable version at install time
+
+   Install command with wildcard:
+   $ dotnet add package Syncfusion.SfDataGrid.WinForms
+
+   (omitting --version lets NuGet resolve the latest stable automatically)
+```
+
+**Wildcard (`*`) rule:**
+
+| Scenario | Version Strategy |
+|---|---|
+| Stage 2 version locked | Use exact version (e.g., `--version 33.2.10`) for ALL packages |
+| Existing Syncfusion package found in `.csproj` | Extract and reuse that version for ALL packages |
+| NuGet registry query succeeds | Use returned latest stable version |
+| Version unknown — cannot determine | Omit `--version` flag (NuGet defaults to latest stable) |
+
+> ⚠️ **Uniformity rule:** Once a version is resolved by any method, ALL Syncfusion packages in the project MUST use that same version. Mixing versions across packages causes assembly mismatch errors at runtime.
+> ⚠️ **No guessing:** Never hardcode a version number that was not retrieved from Stage 2, the `.csproj`, or the NuGet registry. An unknown version is not a reason to invent one — it is a reason to use the wildcard strategy above.
+
+- **Output:** Resolved version string (e.g., `33.2.10`) OR wildcard strategy confirmed with reason logged
+
+### Step 3A: 🔴 DETECT THEME PACKAGE (BLOCKING — CRITICAL)
+
+**If `SkinManager.ApplicationVisualTheme` is set in `Program.cs` → a theme assembly package MAY be required. Check the table below.**
+
+```
+SEARCH generated Program.cs for:
+  • SkinManager.ApplicationVisualTheme = "..."
+  • SkinManager.LoadAssembly(...)
+
+IF SkinManager.ApplicationVisualTheme is found:
+  1. Extract locked theme name from Stage 4 output
+     (e.g., "Office2019Colorful", "Office2016Black", "HighContrastBlack")
+  2. Look up theme in the mapping table below to determine NuGet package
+     - Built-in themes (Office2007, Office2010, Office2013, Metro) → NO separate package needed
+     - Office2016, Office2019, HighContrast → separate package REQUIRED
+  3. If separate package required: add to core dependencies list with REQUIRED flag
+
+  IF theme name unknown or missing from Stage 4:
+  → ❌ HALT: "Theme selected but name not recorded in Stage 4.
+               Cannot determine package name."
+
+  IF theme name is not in the mapping table:
+  → ❌ HALT: "Unknown theme name '<value>' — read syncfusion-winforms-theming/SKILL.md to verify"
+
+  ✅ Package identified (or confirmed not needed) → proceed to version resolution
+     (use same version as all other Syncfusion packages)
+
+THEME PACKAGE VALIDATION:
+  • Use ONLY exact package names from the mapping table (case-sensitive)
+  • Must match Syncfusion version
+  • Built-in themes (Office2007/2010/2013, Metro) require NO separate package
+```
+
+**Theme package mappings (from syncfusion-winforms-theming skill files):**
+| Theme Name (Stage 4) | NuGet Package | `LoadAssembly()` Required |
+|---|---|---|
+| Office2007Blue/Black/Silver | *(built-in — no package)* | No |
+| Office2010Blue/Black/Silver | *(built-in — no package)* | No |
+| Office2013White/DarkGray/Black | *(built-in — no package)* | No |
+| Metro | *(built-in — no package)* | No |
+| Office2016White/DarkGray/Black/Colorful | `Syncfusion.Office2016Theme.WinForms` | Yes (Sf-prefixed controls only) |
+| Office2019Colorful | `Syncfusion.Office2019Theme.WinForms` | Yes |
+| HighContrastBlack | `Syncfusion.HighContrastTheme.WinForms` | Yes |
+
+**Output:** Theme package name confirmed (or not required) OR ⛔ HALT with reason
+
+---
+
+### Step 4: Add Required Core Packages (Always)
+- `Syncfusion.Core.WinForms` — foundational package
+- `Syncfusion.Licensing` — license registration
+- `Syncfusion.Shared.Base` — shared base assemblies required by most WinForms controls
+- Theme package (detected in Step 3A if `SkinManager.ApplicationVisualTheme` uses a separate-assembly theme, e.g., `Syncfusion.Office2019Theme.WinForms`)
+- **Output:** Core dependencies confirmed
+
+### Step 5: Deduplicate & Consolidate
+- Remove duplicate package entries across controls
+- Consolidate shared dependencies (e.g., `Syncfusion.Core.WinForms` used by multiple controls)
+- List final unique packages with version
+- **Output:** Final package list (no duplicates)
+
+### Step 6: Prepare Installation Command
+- Generate NuGet restore/install commands for new packages
+- Include version for each package (matching Stage 2 version)
+- Exclude already-installed packages
+- **Output:** Ready-to-execute install command
+
+---
+
+## Validation Rules (MANDATORY)
+
+| Check | Valid? | Action |
+|-------|--------|--------|
+| All package names verified in skill files? | ✅ Yes / ❌ No | Halt if not verified; re-read skill files |
+| Version resolved (exact or wildcard)? | ✅ Yes / ❌ No | Use wildcard if version unknown — never guess a number |
+| All Syncfusion packages same version? | ✅ Yes / ❌ No | Enforce uniform version; wildcard counts as uniform if no version known |
+| Core packages included (Core, Shared.Base, Licensing, Theme)? | ✅ Yes / ❌ No | Add missing core packages |
+| **SkinManager.ApplicationVisualTheme set AND separate-assembly theme package included?** | ✅ Yes / ❌ No | **⛔ HALT if Office2016/2019/HighContrast theme used but package missing** |
+| No duplicate packages in final list? | ✅ Yes / ❌ No | Remove duplicates |
+| Package versions compatible with framework? | ✅ Yes / ❌ No | Suggest upgrade or compatible version |
+
+---
+
+## Output Format
 
 ```
 ✓ Dependency Analysis
 
-Target Framework:
-  .NET 8.0 (recommended for WinForms)
+Skill File → NuGet Package Mapping:
+  • syncfusion-winforms-datagrid → Syncfusion.SfDataGrid.WinForms (verified)
+  • syncfusion-winforms-textbox  → Syncfusion.Core.WinForms (verified)
+  • syncfusion-winforms-button   → Syncfusion.Core.WinForms (verified)
 
-New Packages to Install:
-  - Syncfusion.Core.WinForms (Latest)
-  - Syncfusion.SfInput.WinForms (Latest)
-  - Syncfusion.Shared.Base (Latest)
-  - Syncfusion.Tools.Windows (Latest)
+Core Dependencies (Required):
+  • Syncfusion.Core.WinForms
+  • Syncfusion.Licensing
+  • Syncfusion.Shared.Base
+  • Syncfusion.Office2019Theme.WinForms  ← separate assembly required for Office2019Colorful
 
-Existing Packages:
-  ✓ Syncfusion.Licensing (compatible)
-  ✓ System.ComponentModel.Composition (compatible)
-  ✓ System.Windows.Forms (framework built-in)
+Control Dependencies (From Skill Files):
+  • Syncfusion.SfDataGrid.WinForms (new)
+  • Syncfusion.Tools.Windows (new)
+
+Already Installed:
+  • Syncfusion.Core.WinForms ✓
 
 Conflicts: None
 
-Installation Commands (Windows):
-$ dotnet add package Syncfusion.Core.WinForms
-$ dotnet add package Syncfusion.SfInput.WinForms
-$ dotnet add package Syncfusion.Shared.Base
-$ dotnet add package Syncfusion.Tools.Windows
-
-Or restore entire project:
-$ dotnet restore
+Install Command (dotnet CLI — version unknown, wildcard strategy):
+  $ dotnet add package Syncfusion.Core.WinForms
+  $ dotnet add package Syncfusion.Licensing
+  $ dotnet add package Syncfusion.Shared.Base
+  $ dotnet add package Syncfusion.Office2019Theme.WinForms
+  $ dotnet add package Syncfusion.SfDataGrid.WinForms
+  $ dotnet add package Syncfusion.Tools.Windows
+  ⚠️ Run `dotnet restore` then verify all resolved versions match in .csproj before proceeding
 ```
 
-**User Interaction:**
-User confirms NuGet installation or updates project file manually:
+---
+
+## Critical Rules
+
+⚠️ **ALWAYS:**
+1. Read skill files BEFORE assuming package names
+2. If version cannot be detected from Stage 2, `.csproj`, or NuGet registry → omit `--version` flag (wildcard); never invent a version number
+3. Enforce uniform Syncfusion version across all packages
+4. Include ALL core packages (Core, Shared.Base, Licensing, Theme) regardless of controls
+5. Validate package names exactly match skill file documentation
+
+⚠️ **RUNTIME ISSUE PREVENTION:**
+- **Missing Syncfusion.Core.WinForms** → "Type initializer threw exception"
+- **Missing Syncfusion.Licensing** → License registration fails, watermark appears
+- **Missing Syncfusion.Shared.Base** → Controls fail to load, "Assembly not found" errors
+- **Missing theme package** → Controls render with generic styling, assembly load error
+- **Version mismatch across Syncfusion packages** → "Type X in assembly Y does not match type in assembly Z"
+
+---
+
+## User Interaction
+
 ```
-Ready to install dependencies?
-[Install] [Show Command] [Edit .csproj] [Skip]
+✓ All dependencies detected and validated
+✓ No conflicts found
+✓ Installation command ready
+
+[✓ Install Now] [📋 Show Command] [⏭️ Skip for Later]
 ```
 
-**Status:** AI detects and prepares. User decides whether to install now or update project file manually.
+**Status:** Ready for Stage 7. User can install immediately or manually after code insertion in Stage 9.

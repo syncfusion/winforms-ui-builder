@@ -1,30 +1,43 @@
 # Stage 1: Intent Analysis
 
-**Purpose:** Parse and validate the user's natural language request, identify control type and modifiers, resolve ambiguities for WinForms and .NET development.
+**Purpose:** Parse and validate the user's natural language request, identify WinForms control type and requirements, resolve ambiguities.
 
 **AI Should:**
 - Read the user's raw query carefully
-- Identify primary intent: `generate_control`, `generate_form`, or `modify_existing`
-- Extract control type (e.g., "login form" → Form/LoginForm, "data grid" → SfDataGrid, "button group" → GroupBox/Buttons)
-- Extract modifiers (e.g., "dark theme" → styling:dark, "with validation" → feature:validation, "async operation" → feature:async)
-- Identify target namespace/directory if specified (e.g., "in the auth folder" → targetDir:Auth/)
+- Identify primary intent: `generate_form`, `generate_usercontrol`, `generate_dialog`, or `modify_existing`
+- Extract control type (e.g., "login form" → Form/LoginForm, "product grid" → UserControl/ProductGrid, "confirmation dialog" → Form/ConfirmDialog)
+- Extract architecture requirements (e.g., "with presenter" → MVP:enabled, "code-behind only" → MVP:minimal, "with data binding" → BindingSource:enabled)
+- Extract Syncfusion controls needed (e.g., "data grid" → SfDataGrid, "chart" → SfChart, "scheduler" → SfScheduler)
+- Extract styling/theme (e.g., "dark theme" → Theme:Dark, "Office style" → Theme:Office2019)
+- Identify target directory if specified (e.g., "in the Forms folder" → targetDir:Forms/)
+- Identify required features (e.g., "with validation", "async/await", "data binding")
 
 **Ambiguity Resolution:**
 If the request is unclear, ask ONE clarifying question. Examples:
 
 | Ambiguous Input | Clarifying Question |
 |---|---|
-| "Build me a form" | "What kind of form? (login, registration, contact, data-entry, multi-step)" |
-| "Add a control" | "What control would you like? (DataGridView, ListView, TextBox, Button, ComboBox, etc.)" |
-| "Make it better" | "Which form/control and what aspect? (accessibility, validation, theming, layout)" |
+| "Build me a form" | "What kind of form? (login, registration, contact, data entry, multi-step)" |
+| "Add a control" | "What WinForms control? (Form, UserControl, custom control, or Syncfusion control like SfDataGrid, SfChart)" |
+| "Make it better" | "Which control and what aspect? (accessibility, architecture, styling, performance)" |
+| "Create a grid" | "Display local data or remote? Single-select or multi-select? With filtering/sorting?" |
 
 **Output to User:**
 One-line confirmation:
 ```
-✓ Understood: Generating a dark-themed LoginForm with validation and async operations.
+✓ Understood: Generating a dark-themed login form with "Remember Me" support.
 Starting project detection...
 ```
 
-**Reference:** For control type catalog and WinForms best practices, see LAYOUT-DESIGN.md
+**WinForms-Specific Intent Examples:**
 
-**Status:** This stage requires NO user interaction for confirmation. AI decides intent based on pure reasoning and .NET/WinForms conventions.
+| User Request | Intent | controls | Architecture | Theme |
+|---|---|---|---|---|
+| "Create a login form" | generate_form | Form + UserControl | Code-behind | Default |
+| "Add a customer data grid" | generate_usercontrol | UserControl + SfDataGrid | BindingSource + Event Handlers | Office2019 |
+| "Build a product details dialog" | generate_dialog | Form/Dialog + Validation | ErrorProvider | Material |
+| "Make a settings panel" | generate_usercontrol | UserControl + Properties | Event-driven | Current theme |
+
+**Reference:** For control type catalog, see stage-3-layout-analysis.md
+
+**Status:** This stage requires NO user interaction for confirmation. AI decides intent based on pure reasoning.
