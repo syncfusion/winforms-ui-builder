@@ -19,14 +19,14 @@
 
 ## Accessibility Standards (WCAG 2.2 AA)
 
-### WCAG Principles: POUR
+### Desktop Accessibility Principles
 
 | Principle | Description |
 |-----------|-------------|
-| **P**erceivable | Content can be perceived through different senses (text alternatives, contrast, clear structure) |
-| **O**perable | Interface can be operated by all users (keyboard, no traps, sufficient target size) |
-| **U**nderstandable | Content and interface are understandable (clear language, predictable, error guidance) |
-| **R**obust | Content works with assistive technologies (semantic HTML, proper ARIA, screen reader compatible) |
+| **Perceivable** | UI elements can be perceived through different senses (text alternatives, contrast, high DPI scaling) |
+| **Operable** | Interface can be operated by all users (keyboard navigation, tooltip support, touch target size) |
+| **Understandable** | Interface behavior is predictable (consistent navigation, clear error guidance) |
+| **Robust** | Controls work with assistive technologies (AccessibleName, AccessibleRole, screen reader compatible) |
 
 ---
 
@@ -82,10 +82,12 @@ toolTip.SetToolTip(btnRefresh, "Refresh - Reload data from server");
 ```
 
 **Validation Rules:**
-- [ ] All informative images have descriptive alt text
-- [ ] Decorative images have empty alt (`alt=""`)
-- [ ] Icon-only buttons have `aria-label` or hidden text
-- [ ] Complex images have `aria-describedby` with detailed description
+- [ ] All informative images/controls have `AccessibleName` and `AccessibleDescription`
+- [ ] Decorative images have empty `AccessibleDescription`
+- [ ] Icon-only buttons have `AccessibleName` set
+- [ ] Complex images have `AccessibleDescription` or `ToolTip` with detailed description
+
+> 🔴 **BLOCKING:** IF any informative image or icon-only button is missing `AccessibleName` → **FAIL** — `"Accessibility violation: missing AccessibleName on <element>"`
 
 ---
 
@@ -132,6 +134,8 @@ audioPanel.Controls.Add(transcriptBox);
 - [ ] Videos have captions
 - [ ] Videos have audio descriptions
 - [ ] Auto-playing audio can be paused/stopped
+
+> 🔴 **BLOCKING:** IF interactive control is missing both `ToolTip` and `AccessibleDescription` → **FAIL** — `"Accessibility violation: no help text on <control>"`
 
 ---
 
@@ -217,8 +221,12 @@ errorMessage.Visible = true;
 - [ ] All text has contrast ≥ 4.5:1 (normal) or 3:1 (large)
 - [ ] Focus indicators have contrast ≥ 3:1
 - [ ] Placeholder text has minimum 4.5:1 contrast
-- [ ] Icons conveying information have 3:1 contrast
-- [ ] Information not conveyed by color alone
+- [ ] Icons conveying status have 3:1 contrast
+- [ ] High Contrast Theme supported via SkinManager (`HighContrastBlack`)
+- [ ] Information not conveyed by color alone (use text + icon)
+
+> 🔴 **BLOCKING:** IF any text contrast < 4.5:1 or UI control contrast < 3:1 → **FAIL** — `"WCAG 2.2 AA violation: contrast ratio <ratio> on <element> (minimum: <required>)"`
+> 🔴 **BLOCKING:** IF state change (error, success, warning) communicated by color only → **FAIL** — `"Accessibility violation: color-only state indicator on <element>"`
 
 ---
 
@@ -291,12 +299,15 @@ panel.KeyDown += (s, e) =>
 ```
 
 **Validation Rules:**
-- [ ] All interactive elements in tab order (no negative tabindex)
-- [ ] Tab order is logical (left-to-right, top-to-bottom)
-- [ ] Can Tab into and out of every control
+- [ ] All interactive elements have `TabStop = true` and are in tab order
+- [ ] Tab order is logical (TabIndex set correctly, left-to-right, top-to-bottom)
+- [ ] Can Tab into and out of every control (no keyboard traps)
 - [ ] Escape key closes modals and dropdowns
 - [ ] Enter key submits forms and activates buttons
 - [ ] Arrow keys work for lists, dropdowns, tabs
+
+> 🔴 **BLOCKING:** IF any interactive control has `TabStop = false` without justification → **FAIL** — `"Keyboard accessibility violation: <element> is not keyboard reachable"`
+> 🔴 **BLOCKING:** IF keyboard trap detected (Tab key handled and swallowed in event handler) → **FAIL** — `"Keyboard trap violation on <element>"`
 
 ---
 
@@ -382,11 +393,13 @@ parentForm.Focus();  // Return focus to parent
 ```
 
 **Validation Rules:**
-- [ ] Focus indicators always visible (never outline: none)
+- [ ] Focus indicators always visible (never `HideSelection = true` on focused controls)
 - [ ] Focus outline ≥ 2px thick, ≥ 3:1 contrast
 - [ ] Focus order logical (top-to-bottom, left-to-right)
-- [ ] Focus managed when modal/dialog opens
-- [ ] Focused element not obscured by sticky headers/footers
+- [ ] Focus managed when modal/dialog opens (focus primary element)
+- [ ] Focused element not obscured by other UI elements
+
+> 🔴 **BLOCKING:** IF `HideSelection = true` found on any focused control → **FAIL** — `"Accessibility violation: focus indicator hidden on <element>"`
 
 ---
 
@@ -601,10 +614,11 @@ TextBox field3 = new TextBox { TabIndex = 3 };
 ```
 
 **Validation Rules:**
-- [ ] Page language specified in `<html lang="...">`
-- [ ] Language changes marked with `lang` attribute
-- [ ] Headings use proper hierarchy (h1-h6, no skipping)
-- [ ] Headings are descriptive
+- [ ] Application culture set via `CultureInfo.CurrentUICulture` in startup
+- [ ] Language changes applied via `Thread.CurrentUICulture`
+- [ ] UI hierarchy is logical (GroupBox nesting reflects conceptual grouping)
+- [ ] GroupBox labels are descriptive
+- [ ] Tab order follows logical visual hierarchy
 
 ---
 
@@ -844,12 +858,12 @@ Button passkeyButton = new Button
 ```
 
 **Validation Rules:**
-- [ ] Every input has associated label
-- [ ] Required fields marked with * or text
+- [ ] Every input has associated `Label` control or `AccessibleName`
+- [ ] Required fields marked with `*` or "required" in label text
 - [ ] Error messages clear and specific
-- [ ] Errors linked via `aria-describedby`
+- [ ] Errors linked via `AccessibleDescription` on the input field
 - [ ] Error messages include how to fix
-- [ ] Validation happens at appropriate times (blur, submit)
+- [ ] Validation happens at appropriate times (LostFocus, form submit)
 - [ ] Information not re-requested (auto-fill where possible)
 - [ ] Login not purely cognitive (offer alternatives)
 
@@ -950,14 +964,14 @@ emailInput.AccessibleDescription = "Error: Invalid email format. Please enter a 
 ```
 
 **Validation Rules:**
-- [ ] Buttons are `<button>` elements
-- [ ] Links are `<a>` elements
-- [ ] Forms use `<form>` element
-- [ ] Inputs have associated labels
-- [ ] No `role`, `aria-*` when native HTML works
-- [ ] Icon buttons have `aria-label`
-- [ ] Custom components have proper roles
-- [ ] Error messages have `aria-describedby`
+- [ ] Use native WinForms controls (Button, TextBox, CheckBox, etc.) where possible
+- [ ] Custom controls only when native control doesn't fit the requirement
+- [ ] All interactive controls have `AccessibleName` (or associated `Label`)
+- [ ] Icon-only buttons have `AccessibleName` set
+- [ ] Custom controls have `AccessibleRole` set appropriately
+- [ ] Error fields update `AccessibleDescription` with error text
+
+> 🔴 **BLOCKING:** IF business logic (service calls, data access, computation) found directly in Form event handlers without a service/repository layer → **FAIL** — `"Architecture violation: business logic in Form event handler of <file>"`
 
 ---
 
@@ -994,32 +1008,43 @@ emailInput.AccessibleDescription = "Error: Invalid email format. Please enter a 
 
 ## Security Standards
 
-### 2.1 Input Validation
+### 2.1 Input Validation & Safety
 
-**Requirement:** Prevent XSS and injection attacks
+**Requirement:** Prevent injection attacks and unsafe code execution
 
 **What to Check:**
 
-```tsx
-// ✗ BAD - Unsanitized user input
-const userBio = "<img src=x onerror='alert(1)'>";
-<div dangerouslySetInnerHTML={{ __html: userBio }} />
+```csharp
+// ✗ BAD - Unsanitized user input in dynamic code execution
+string code = textBoxUserInput.Text;
+object result = new Microsoft.CSharp.CSharpCodeProvider()
+    .CompileAssemblyFromSource(...).CompiledAssembly.CreateInstance(code); // DANGEROUS!
 
-// ✓ GOOD - User input rendered as text (safe)
-<div>{userBio}</div>
+// ✓ GOOD - User input displayed as text only
+labelOutput.Text = userInput;
 
-// ✓ GOOD - Sanitize if HTML is truly needed
-import DOMPurify from 'dompurify';
-const cleanHTML = DOMPurify.sanitize(userBio);
-<div dangerouslySetInnerHTML={{ __html: cleanHTML }} />
+// ✓ GOOD - Validate input before use in queries
+string query = "SELECT * FROM Users WHERE Email = @email";
+SqlCommand cmd = new SqlCommand(query, connection);
+cmd.Parameters.AddWithValue("@email", userEmail); // Parameterized
+
+// ✗ BAD - SQL Injection
+string query = $"SELECT * FROM Users WHERE Email = '{userEmail}'"; // DANGEROUS!
+
+// ✓ GOOD - Validate file paths to prevent path traversal
+string fileName = Path.GetFileName(userInput); // Strip directory components
+string safePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "uploads", fileName);
 ```
 
 **Validation Rules:**
-- [ ] No `dangerouslySetInnerHTML` with user input
-- [ ] No `eval()` or `Function()` constructors
-- [ ] No inline event handlers (onClick="code()")
-- [ ] User input sanitized before display
-- [ ] URL validation before navigation
+- [ ] No dynamic code execution on unsanitized user input
+- [ ] No `Activator.CreateInstance()` on untrusted types
+- [ ] SQL queries use parameterized queries (`SqlParameter`)
+- [ ] User input validated before use in file paths
+- [ ] No reflection misuse on untrusted data
+
+> 🔴 **BLOCKING:** IF dynamic code execution called with user-supplied input → **FAIL** — `"Security violation: unsafe dynamic execution in <class>"`
+> 🔴 **BLOCKING:** IF unparameterized SQL string interpolation detected → **FAIL** — `"Security violation: SQL injection risk in <method>"`
 
 ---
 
@@ -1072,6 +1097,8 @@ using (var client = new SecretClient(
 - [ ] Database credentials from secure stores, not variables
 - [ ] Syncfusion license keys from secure configuration, not hardcoded
 - [ ] Connection strings use Windows authentication where possible
+
+> 🔴 **BLOCKING:** IF any string literal matches secret pattern (API key, password, connection string) in `.cs` file → **FAIL** — `"Security violation: hardcoded secret detected in <file> at line <n>"`
 
 ---
 
@@ -1166,13 +1193,16 @@ private int GetCategoryCount(string category)
 ```
 
 **Validation Rules:**
-- [ ] Use `BeginUpdate()` and `EndUpdate()` for batch operations
+- [ ] Use `BeginUpdate()` and `EndUpdate()` for batch operations on lists/grids
 - [ ] Long operations use async/await (no blocking UI thread)
 - [ ] Expensive computations cached, not recalculated
 - [ ] No infinite loops in timers or event handlers
 - [ ] Timers properly stopped/disposed
-- [ ] DataGrid virtual scrolling enabled for large datasets
+- [ ] DataGrid/SfDataGrid virtual scrolling enabled for large datasets
 - [ ] Double-buffering enabled for custom controls (`DoubleBuffered = true`)
+
+> 🔴 **BLOCKING:** IF large list (> 100 items) bound to control and `BeginUpdate`/`EndUpdate` not used for batch updates → **FAIL** — `"Performance violation: batch update missing on large list <element>"`
+> 🔴 **BLOCKING:** IF `Task.Wait()` or `Task.Result` called on UI thread → **FAIL** — `"Performance violation: UI thread blocked in <method>"`
 
 ---
 
@@ -1246,6 +1276,8 @@ public class DataProvider<T> where T : class
 - [ ] Use `ArgumentNullException` for invalid null inputs
 - [ ] Null-conditional operators (`?.`) used appropriately
 
+> 🔴 **BLOCKING:** IF unhandled null dereference risk detected (no null check before `.` access on nullable type) → **FAIL** — `"Null safety violation: possible NullReferenceException in <method>"`
+
 ---
 
 ### 4.2 Code Hygiene
@@ -1310,125 +1342,115 @@ private async Task LoadDataAsync()
 - [ ] Use `readonly` for fields that don't change
 - [ ] Use `const` for compile-time constants
 
+> 🔴 **BLOCKING:** IF `Debugger.Break()` or `Debug.WriteLine()` found in any non-test file → **FAIL** — `"Code quality violation: debug statement in production code at <file> line <n>"`
+
 ---
 
 ## Validation Checklist
 
-**WCAG 2.2 AA Accessibility Checklist—run for every WinForms control:**
+**Run for every generated WinForms screen. Each item is a binary gate — PASS or FAIL. No partial credit. No silent pass.**
+
+> 🔴 **GLOBAL RULE:** Any single FAIL blocks Stage 7 insertion. All items must reach PASS before proceeding.
 
 ```
-PERCEIVABLE
-  ✓ All images have AccessibleName and AccessibleDescription
-  ✓ Icon buttons have AccessibleName (not empty)
-  ✓ Media has captions and descriptions (if applicable)
-  ✓ Color contrast ≥ 4.5:1 for text (or 3:1 for large/14pt+)
-  ✓ Color contrast ≥ 3:1 for UI components
-  ✓ Information not conveyed by color alone (use icons/text)
-  ✓ Auto-playing audio disabled
-  ✓ Focus indicators visible (never HideSelection=true for focused controls)
+ACCESSIBILITY (WCAG 2.2 AA)
+  [ ] All images/icons have AccessibleName and AccessibleDescription
+      ❌ FAIL: "Missing AccessibleName on <element>"
+  [ ] Decorative images have empty AccessibleDescription
+      ❌ FAIL: "Decorative image not hidden from accessibility tree: <element>"
+  [ ] Icon buttons have AccessibleName set
+      ❌ FAIL: "Icon-only button missing accessible name: <element>"
+  [ ] Complex controls have AccessibleDescription or ToolTip
+      ❌ FAIL: "Missing help text on complex control: <element>"
+  [ ] Color contrast ≥ 4.5:1 for normal text, ≥ 3:1 for large text
+      ❌ FAIL: "Contrast ratio <ratio> on <element> — minimum <required>"
+  [ ] Information not conveyed by color alone (use text + icon)
+      ❌ FAIL: "Color-only state indicator on <element>"
+  [ ] High Contrast Theme supported via SkinManager (HighContrastBlack)
+      ❌ FAIL: "No high contrast theme support in application"
 
-OPERABLE
-  ✓ All functionality accessible via keyboard (Tab, Enter, Space, Arrows)
-  ✓ Tab order logical (left-to-right, top-to-bottom)
-  ✓ No keyboard traps (can Tab out of all controls)
-  ✓ Focus indicators always visible
-  ✓ Focus outline ≥ 2px equivalent, ≥ 3:1 contrast
-  ✓ Focused element not obscured by other UI
-  ✓ Interactive targets ≥ 24×24 screen pixels
-  ✓ Drag operations have button/keyboard alternatives
-  ✓ Escape key closes dialogs/popups
-  ✓ Enter submits forms, Space activates buttons
-  ✓ Arrow keys work for lists/dropdowns/tabs/sliders
-  ✓ Context menus accessible via keyboard
+KEYBOARD NAVIGATION
+  [ ] All interactive elements have TabStop = true and are in tab order
+      ❌ FAIL: "Keyboard inaccessible control: <element>"
+  [ ] Tab order logical (left-to-right, top-to-bottom)
+      ❌ FAIL: "Illogical tab order detected — verify TabIndex values"
+  [ ] No keyboard traps (Tab key not swallowed in handlers)
+      ❌ FAIL: "Keyboard trap on <element> — Tab key swallowed in handler"
+  [ ] Focus indicators always visible (HideSelection = false)
+      ❌ FAIL: "Focus indicator hidden on <element>"
+  [ ] Escape closes dialogs; Enter activates default buttons
+      ❌ FAIL: "Escape/Enter key handling missing on <form/dialog>"
 
-UNDERSTANDABLE
-  ✓ Application culture/language set appropriately
-  ✓ Language changes marked in content (if multilingual)
-  ✓ UI hierarchy logical (GroupBox organization, tab order)
-  ✓ Group labels descriptive
-  ✓ Every form field has associated label
-  ✓ Required fields marked (* or "required" text)
-  ✓ Error messages clear and specific
-  ✓ Error messages linked via AccessibleDescription
-  ✓ Form validation at appropriate times (after focus loss, on submit)
-  ✓ Information not re-requested (pre-fill where possible)
-  ✓ Button text describes action clearly
-  ✓ Navigation consistent across forms
-  ✓ Help mechanisms consistently placed
-  ✓ Login not purely cognitive test (NEW in 2.2)
-
-ROBUST
-  ✓ Native WinForms controls used (Button, TextBox, CheckBox, etc.)
-  ✓ Custom controls only when native doesn't fit
-  ✓ Icon buttons have AccessibleName
-  ✓ Error fields have appropriate state indication
-  ✓ Error messages visible and accessible
-  ✓ Custom controls have AccessibleRole set
-  ✓ Proper AccessibleRole and AccessibleName for custom controls
+CONTROLS & FORMS
+  [ ] Every input has associated Label control or AccessibleName
+      ❌ FAIL: "Unlabelled input control: <element>"
+  [ ] Required fields marked with * or "required" in label text
+      ❌ FAIL: "Required field not marked: <element>"
+  [ ] Error messages displayed via AccessibleDescription and visible Label/icon
+      ❌ FAIL: "No error feedback on validated field: <element>"
+  [ ] Interactive targets ≥ 24×24 screen pixels
+      ❌ FAIL: "Touch target too small on <element>: <actual> (min 24×24)"
+  [ ] Drag operations have keyboard/button alternatives
+      ❌ FAIL: "Drag-only interaction without keyboard alternative: <element>"
 
 SECURITY
-  ✓ No dynamic code execution (eval, Reflection for untrusted input)
-  ✓ User input validated before use
-  ✓ SQL queries use parameterized queries (no string concatenation)
-  ✓ No hardcoded API keys or connection strings
-  ✓ Secrets loaded from configuration/environment
-  ✓ All NuGet packages from official NuGet.org registry
-  ✓ Sensitive data not logged
+  [ ] No dynamic code execution on user input
+      ❌ FAIL: "Unsafe dynamic execution in <class>"
+  [ ] No SQL string interpolation
+      ❌ FAIL: "SQL injection risk in <method>"
+  [ ] No hardcoded secrets (API keys, passwords, connection strings)
+      ❌ FAIL: "Hardcoded secret in <file> at line <n>"
+  [ ] All NuGet packages from official NuGet.org
+      ❌ FAIL: "Unverified package source: <package>"
 
 PERFORMANCE
-  ✓ Use BeginUpdate/EndUpdate for batch control updates
-  ✓ Long operations use async/await (no UI thread blocking)
-  ✓ Expensive computations cached (not recalculated)
-  ✓ No infinite loops in event handlers or timers
-  ✓ Timers properly disposed
-  ✓ DataGrid virtual scrolling enabled for large datasets
-  ✓ Double-buffering enabled for custom controls
-  ✓ Main assembly < 2MB uncompressed
+  [ ] Batch control updates use BeginUpdate/EndUpdate
+      ❌ FAIL: "Batch update missing on large list: <element>"
+  [ ] No Task.Wait() or Task.Result on UI thread
+      ❌ FAIL: "UI thread blocked in <method>"
+  [ ] Event handlers unsubscribed or disposed with form
+      ❌ FAIL: "Potential memory leak — handler not unsubscribed in <class>"
 
 CODE QUALITY
-  ✓ Proper null handling (#nullable enable or explicit null checks)
-  ✓ Explicit types for UI controls (not var for Button, TextBox, etc.)
-  ✓ Event handlers properly typed
-  ✓ Return types explicitly defined
-  ✓ No var for UI control declarations
-  ✓ No Console.WriteLine or Debug.Print in production
-  ✓ Proper logging framework used (ILogger, log4net, etc.)
-  ✓ No unused variables or imports
-  ✓ No commented-out code blocks
-  ✓ Consistent indentation (4 spaces)
-  ✓ Meaningful variable and method names
-  ✓ Named constants for magic numbers
-  ✓ Proper access modifiers (private, public, internal)
-  ✓ Use readonly for unchanging fields
-  ✓ Use const for compile-time constants
+  [ ] #nullable enable or explicit null checks throughout
+      ❌ FAIL: "Possible NullReferenceException in <method>"
+  [ ] Explicit types for UI controls (not var for Button, TextBox, etc.)
+      ❌ FAIL: "Implicit type used for UI control declaration in <file>"
+  [ ] No debug statements in production code
+      ❌ FAIL: "Debug statement in <file> at line <n>"
+  [ ] Syncfusion theme applied via SkinManager (not manual control styling)
+      ❌ FAIL: "Syncfusion theme bypassed — manual styling overrides SkinManager in <file>"
 ```
 
 ---
 
 ## Auto-Fix Rules
 
-**Stage 5 automatically fixes these issues:**
+**Stage 7 automatically applies fixes only when the rule is well-defined and the fix is deterministic and safe.**
 
-| Issue | Auto-Fix |
-|-------|----------|
-| Missing AccessibleName on icon button | Add based on icon context |
-| Missing AccessibleDescription on error field | Add description text |
-| Missing TabStop on interactive control | Set TabStop = true |
-| Missing TabIndex on control | Add logical tab order |
-| Var declarations for controls | Convert to explicit type (Button, TextBox, etc.) |
-| Console.WriteLine statements | Remove or convert to logger call |
-| Unused using statements | Remove from imports |
-| Low color contrast detected | Suggest higher contrast colors |
-| Missing focus handling | Add focus management code |
-| Unlabeled form inputs | Add Label control with correct association |
-| Missing button accessibility text | Add AccessibleName/AccessibleDescription |
-| Control too small (< 24×24) | Suggest minimum size |
-| HideSelection = true | Change to false for accessibility |
-| Control-mapping.json missing or invalid | Prompt for Stage 3 re-execution |
-| Weak BM25 scores (< 20) in mappings | Warn about potential incorrect control selection |
+> 🔴 **BLOCKING:** IF an issue cannot be auto-fixed safely (ambiguous, requires human judgment, or would change behavior) → **FAIL** — do NOT apply a guess-based correction. Report the issue for manual resolution.
+
+| Issue | Auto-Fix | Safe? |
+|-------|----------|-------|
+| Missing `AccessibleName` on icon button | Infer from button `Text`, `ToolTip`, or context | ✅ Yes (if source is unambiguous) |
+| Missing `AccessibleDescription` on error field | Add description text from associated error Label | ✅ Yes |
+| Missing `TabStop = true` on interactive control | Set `TabStop = true` | ✅ Yes |
+| Missing `TabIndex` on control | Calculate logical order (top-to-bottom, left-to-right by position) | ✅ Yes |
+| Missing `ToolTip` on icon-only button | Copy from `AccessibleName` if it exists | ✅ Conditional |
+| `var` declarations for UI controls | Convert to explicit type (`Button`, `TextBox`, etc.) | ✅ Yes |
+| `Console.WriteLine` / `Debug.Print` statements | Remove or replace with `ILogger` call | ✅ Yes |
+| Unused `using` statements | Remove from imports | ✅ Yes |
+| `HideSelection = true` on focused control | Change to `false` | ✅ Yes |
+| Missing `BeginUpdate`/`EndUpdate` on list batch add | Wrap loop with `BeginUpdate`/`EndUpdate` | ✅ Yes |
+| Control too small (< 24×24 px) | Report minimum size recommendation | ❌ FAIL — report to user |
+| Color contrast too low | ❌ **Cannot auto-fix** — color choice is a design decision | ❌ FAIL — report to user |
+| Hardcoded secrets | ❌ **Cannot auto-fix** — replacement value unknown | ❌ FAIL — report to user |
+| Business logic in Form event handler | ❌ **Cannot auto-fix** — requires architectural refactor | ❌ FAIL — report to user |
+| Missing null checks | ❌ **Cannot auto-fix** — fix logic depends on context | ❌ FAIL — report to user |
 
 ---
 
 **End of WinForms .NET Standards Reference**  
-Updated for **WCAG 2.2 AA** with focus on WinForms/.NET implementation  
+Updated for **WCAG 2.2 AA** and **WinForms Accessibility (AccessibleName/AccessibleRole/SkinManager)**  
+Aligned with Windows Accessibility Standards and Syncfusion WinForms Guidelines  
 Includes NEW criteria: Focus not obscured (2.4.11), Target size (2.5.8), Dragging alternatives (2.5.7), Redundant entry (3.3.7), Accessible authentication (3.3.8)
